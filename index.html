@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Career Assessment (Ages 12–16)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        /* --- PILL BUTTON SCALE STYLES --- */
+        .pill-label {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 0.5rem 0.25rem; 
+            border: 2px solid #cbd5e1; 
+            border-radius: 9999px; 
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            font-size: 0.75rem; 
+            line-height: 1rem;
+            white-space: normal; 
+        }
+        .pill-label:hover {
+            background-color: #e0e7ff; 
+        }
+        input[type="radio"]:checked + .pill-label {
+            background-color: #4f46e5; 
+            color: #fff;
+            border-color: #4338ca;
+            transform: scale(1.03); 
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+        
+        /* Clear previous visual styles */
+        .bubble-option, .bubble-container { display: none !important; }
+
+        label {
+            transition: all 0.15s ease-in-out;
+        }
+        main { padding-top: 100px; } 
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px);} to { opacity: 1; transform: translateY(0);} }
+        
+        /* Style for the password modal */
+        #password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <!-- PASSWORD OVERLAY (NEW) -->
+    <div id="password-overlay">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm text-center">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Access Assessment</h2>
+            <p class="text-sm text-gray-600 mb-4">Please enter the counselor access code to begin the survey.</p>
+            <input type="password" id="passwordInput" placeholder="Enter Access Code" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-indigo-500 focus:border-indigo-500">
+            <button onclick="checkPassword()" class="w-full px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 transition-all">Start Assessment</button>
+            <p id="passwordError" class="text-red-500 mt-2 hidden text-sm">Incorrect code. Please try again.</p>
+        </div>
+    </div>
+    <!-- END PASSWORD OVERLAY -->
+    
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-white shadow-md hidden" id="header-content">
+        <div class="max-w-5xl mx-auto p-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-indigo-700">Career Exploration Survey (Ages 12–16)</h1>
+            <div id="submitBtn" class="hidden md:inline-block"></div>
+        </div>
+    </header>
+
+    <!-- Progress Bar -->
+    <div class="sticky top-[64px] z-40 bg-white border-b border-gray-200 shadow-sm hidden" id="progress-bar-container">
+        <div class="max-w-5xl mx-auto px-4 py-3">
+            <div class="flex justify-between text-xs font-semibold mb-1">
+                <span class="text-indigo-600">Progress</span>
+                <span id="progressText" class="text-gray-600">0/50 Answered</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="progressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300 ease-in-out" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Form -->
+    <main class="max-w-5xl mx-auto p-6 pb-24 md:pb-6 hidden" id="main-content">
+        <form id="assessmentForm" class="space-y-10">
+            <section class="bg-indigo-50 border-l-4 border-indigo-500 p-6 rounded-lg shadow fade-in">
+                <h2 class="text-lg font-bold text-indigo-800 mb-2">Instructions</h2>
+                <p class="text-sm text-gray-700">Choose the option that best describes you. There are no right or wrong answers. **Select the option that matches how much you agree with the statement.**</p>
+            </section>
+
+            <div id="questionsContainer" class="space-y-10 fade-in"></div>
+
+            <!-- Form Submit Button (Used primarily on Desktop, or when mobile user scrolls to the bottom) -->
+            <div class="hidden md:flex justify-center pt-6">
+                <button type="submit" onclick="calculateResults(event)" class="w-full sm:w-1/2 px-8 py-3 bg-indigo-600 text-white text-lg font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition-all duration-300">View My Report</button>
+            </div>
+        </form>
+
+        <!-- Results -->
+        <section id="resultsContainer" class="hidden mt-16 pt-10 border-t-4 border-indigo-300 fade-in">
+            <h2 class="text-3xl font-bold text-indigo-700 mb-6 text-center">Your Career Profile</h2>
+            
+            <!-- Interpretation Key for Traits (UI/UX Improvement) -->
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h3 class="text-xl font-bold text-indigo-700 mb-3 border-b pb-2">What Does This Mean?</h3>
+                <div class="grid grid-cols-2 gap-4 text-sm text-gray-700">
+                    <div>
+                        <p class="font-semibold mb-1">Trait Score Interpretation (Self-Efficacy & Grit):</p>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li><span class="text-green-600 font-bold">Very High / High:</span> You possess strong confidence and effort.</li>
+                            <li><span class="text-yellow-700 font-bold">Medium:</span> You show potential but may need specific skills coaching.</li>
+                            <li><span class="text-red-700 font-bold">Low:</span> Focus on building skills and persistence now.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="font-semibold mb-1">Interests (RIASEC Code):</p>
+                        <p>The 3 highest letters (e.g., R-I-A) form your "Holland Code," indicating the work environments and activities you prefer.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary -->
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h3 class="text-2xl font-extrabold text-gray-800 mb-3">Summary Code: <span id="riasecCode" class="text-indigo-600"></span></h3>
+                <p id="profileSummary" class="text-gray-700 mb-3"></p>
+                <p id="careerSuggestions" class="text-md font-semibold text-gray-700">Suggested Careers: <span class="font-normal text-indigo-600"></span></p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow">
+                    <h3 class="text-xl font-bold text-indigo-700 mb-3 border-b pb-2">Growth Traits & Values</h3>
+                    <div id="traitScores" class="space-y-3"></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow">
+                    <h3 class="text-xl font-bold text-indigo-700 mb-3 border-b pb-2">Interests (RIASEC) Breakdown</h3>
+                    <div id="riasecScores" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Counselor Notes (Improved Content & Structure) -->
+            <div id="interpretation" class="mt-10 bg-indigo-50 p-6 rounded-xl border-l-4 border-indigo-500 shadow">
+                <h3 class="text-xl font-bold text-indigo-800 mb-2">Detailed Counselor Notes</h3>
+                <div id="counselorNotes" class="text-gray-700"></div>
+            </div>
+        </section>
+
+        <div id="incompleteMessage" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg shadow-2xl max-w-sm text-center">
+                <p class="text-lg font-bold text-red-600 mb-2">Incomplete</p>
+                <p class="text-gray-700 mb-4">Please answer all 50 questions.</p>
+                <button onclick="document.getElementById('incompleteMessage').classList.add('hidden')" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">Close</button>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Mobile Fixed Submit Button (NEW: Always visible on mobile screens) -->
+    <div id="mobileFooter" class="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-2xl z-50 hidden">
+        <button onclick="calculateResults(event)" class="w-full px-8 py-3 bg-indigo-600 text-white text-lg font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition-all duration-300">
+            View My Report
+        </button>
+    </div>
+
+    <script>
+        // --- PASSWORD CHECK FUNCTION (NEW) ---
+        const CORRECT_PASSWORD = 'counselor2025';
+
+        function checkPassword() {
+            const input = document.getElementById('passwordInput').value.trim();
+            const error = document.getElementById('passwordError');
+            
+            if (input === CORRECT_PASSWORD) {
+                document.getElementById('password-overlay').style.display = 'none';
+                document.getElementById('header-content').classList.remove('hidden');
+                document.getElementById('progress-bar-container').classList.remove('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+                document.getElementById('mobileFooter').classList.remove('hidden');
+                // Initialize content only after successful login
+                generateQuestions();
+                updateProgress();
+            } else {
+                error.classList.remove('hidden');
+                document.getElementById('passwordInput').value = ''; // Clear input
+            }
+        }
+        // --- END PASSWORD CHECK FUNCTION ---
+        
+        const LABELS = ["Not at all like me", "A little like me", "Mostly like me", "Completely like me"];
+        
+        const QUESTIONS = {
+            A: ["I enjoy solving puzzles or figuring out how things work.", "I like playing sports or other physical games.", "I enjoy drawing, designing, or creating new things.", "I feel happy when I help someone understand a topic.", "I get excited when I learn about new technology or apps.", "I like taking care of plants, animals, or nature.", "I enjoy planning or organizing events or school activities.", "I like activities that involve numbers, patterns, or logic.", "I feel interested when learning about business or money.", "I prefer working outdoors rather than sitting inside all day.", "I like taking things apart to see how they function.", "I like checking papers or lists to make sure everything is correct and organized."],
+            B: ["I want a job that helps other people.", "Having a stable and safe job is important to me.", "I would like a career where I can travel and explore new places.", "I prefer teamwork over working alone.", "I want to be known for doing something creative or original.", "I prefer work that lets me make my own decisions.", "I like taking leadership when my group needs direction.", "I like when my work feels useful to society.", "I want to learn skills that will be useful anywhere in the world.", "It is very important for me to earn a high salary.", "Job satisfaction is more important than money.", "I prefer work that is fast-paced and changes every day."],
+            C: ["I believe I can learn new skills if I keep trying.", "I feel confident when solving difficult problems.", "I can stay calm when something doesn’t work the first time.", "I can explain ideas clearly to others when I understand them.", "I feel confident using computers and digital tools.", "When I start learning something new, I believe I can do well.", "I feel sure that I can finish projects I start.", "I can plan my time well to complete homework or goals.", "When others doubt me, I still believe in my abilities.", "I can improve in any subject if I put in effort.", "I trust myself to make good decisions for my future.", "I feel confident about performing well on exams.", "Sometimes I worry I can’t do a task well."],
+            D: ["I keep working on tasks even when they become difficult.", "When I fail once, I try again in a different way.", "I finish the things I start.", "I practice until I get better at something.", "I don’t give up easily when facing problems.", "If I lose a competition, I work harder next time.", "I push myself to improve even when no one is watching.", "I like challenges that make me stronger.", "I feel proud when I complete something hard.", "Even if others give up, I keep trying until the end.", "I can stay focused on long-term goals.", "I often think about my future goals and how to reach them.", "Sometimes I stop trying when work feels boring."]
+        };
+        
+        // --- SCORING DATA MAPS ---
+        const REVERSE = { C: [13], D: [13] };
+        
+        const RIASEC_MAP = {
+            R: [2, 6, 10], 
+            I: [1, 8, 11], 
+            A: [3],      
+            S: [4],      
+            E: [7, 9],   
+            C: [5, 12]   
+        };
+        
+        const VALUES_THEME_MAP = {
+            ALTRUISM: [1, 4, 7, 8],      // Help others, Teamwork, Leadership, Useful to society
+            SECURITY: [2, 9, 10, 11],    // Stable/Safe, Global skills, High salary, Job satisfaction
+            AUTONOMY: [3, 5, 6, 12]      // Travel, Creative/Original, Own decisions, Fast-paced/Change
+        };
+
+        // --- CORE FUNCTIONS ---
+
+        function generateQuestions() {
+            const container = document.getElementById('questionsContainer');
+            if (container.children.length > 0) return; // Prevent double rendering
+
+            let qNum = 1;
+            const titles = { A: 'Interests', B: 'Values & Motivators', C: 'Self-Efficacy', D: 'Perseverance' };
+
+            for (const key in QUESTIONS) {
+                const section = document.createElement('div');
+                section.className = 'bg-white p-6 rounded-xl shadow';
+                section.innerHTML = `<h3 class="text-xl font-bold text-indigo-600 mb-4 border-b pb-2">Section ${key} – ${titles[key]}</h3>`;
+
+                QUESTIONS[key].forEach((text, idx) => {
+                    const qId = `${key}${idx+1}`;
+                    const div = document.createElement('div');
+                    div.className = 'question-item mb-6 p-4 rounded-xl bg-gray-50'; 
+                    
+                    div.innerHTML = `
+                        <p class='text-base font-semibold text-gray-800 mb-3'>${qNum}. ${text}</p>
+                        
+                        <!-- Responsive grid for pill-shaped buttons -->
+                        <div class='grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4'>
+                            ${LABELS.map((label, i) => {
+                                const value = i + 1;
+                                const id = `${qId}-${value}`;
+                                return `
+                                    <div class="flex flex-col items-center">
+                                        <input type='radio' id='${id}' name='${qId}' value='${value}' class='hidden' onchange='updateProgress()'>
+                                        <!-- Applied new pill-label class -->
+                                        <label for='${id}' class='pill-label'>
+                                            ${value}. ${label}
+                                        </label>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                    section.appendChild(div);
+                    qNum++;
+                });
+                container.appendChild(section);
+            }
+        }
+
+        function updateProgress() {
+            const form = document.getElementById('assessmentForm');
+            const answered = form.querySelectorAll('input[type="radio"]:checked').length;
+            const total = 50;
+            const percent = (answered / total) * 100;
+
+            document.getElementById('progressBar').style.width = `${percent}%`;
+            document.getElementById('progressText').textContent = `${answered}/${total} Answered`;
+
+            // Visual feedback on the question item wrapper when answered (reinstated)
+            form.querySelectorAll('.question-item').forEach(item => {
+                const radio = item.querySelector('input[type="radio"]:checked');
+                if (radio) {
+                    item.classList.add('border', 'border-indigo-200');
+                } else {
+                    item.classList.remove('border', 'border-indigo-200');
+                }
+            });
+        }
+
+        function getScore(section, idx) {
+            const e = document.querySelector(`input[name='${section}${idx}']:checked`);
+            if(!e) return null;
+            let score = parseInt(e.value);
+            // Reverse-code if necessary (4->1, 3->2, etc.)
+            if(REVERSE[section] && REVERSE[section].includes(idx)) score = 5 - score;
+            return score;
+        }
+
+        function calculateValueThemes() {
+            const themeScores = { ALTRUISM: 0, SECURITY: 0, AUTONOMY: 0 };
+
+            QUESTIONS.B.forEach((qText, index) => {
+                const qIndex = index + 1;
+                const score = getScore('B', qIndex, false); 
+
+                if (score !== null) {
+                    if (VALUES_THEME_MAP.ALTRUISM.includes(qIndex)) themeScores.ALTRUISM += score;
+                    if (VALUES_THEME_MAP.SECURITY.includes(qIndex)) themeScores.SECURITY += score;
+                    if (VALUES_THEME_MAP.AUTONOMY.includes(qIndex)) themeScores.AUTONOMY += score;
+                }
+            });
+
+            const themeArray = Object.entries(themeScores).map(([theme, score]) => ({ theme, score }));
+            themeArray.sort((a, b) => b.score - a.score); 
+
+            return {
+                topTheme: themeArray[0].theme,
+                topScore: themeArray[0].score,
+                allThemes: themeArray
+            };
+        }
+
+
+        function calculateSectionScores() {
+            const rawScores = {
+                A: { total: 0, items: QUESTIONS.A.length },
+                B: { total: 0, items: QUESTIONS.B.length },
+                C: { total: 0, items: QUESTIONS.C.length },
+                D: { total: 0, items: QUESTIONS.D.length },
+                RIASEC: { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }
+            };
+
+            let totalQuestionsAnswered = 0;
+
+            for (const sectionKey in QUESTIONS) {
+                QUESTIONS[sectionKey].forEach((qText, index) => {
+                    const qIndex = index + 1;
+                    const isReverse = REVERSE[sectionKey] && REVERSE[sectionKey].includes(qIndex);
+                    const score = getScore(sectionKey, qIndex, isReverse);
+
+                    if (score !== null) {
+                        rawScores[sectionKey].total += score;
+                        totalQuestionsAnswered++;
+
+                        if (sectionKey === 'A') {
+                            for (const type in RIASEC_MAP) {
+                                if (RIASEC_MAP[type].includes(qIndex)) {
+                                    rawScores.RIASEC[type] += score;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (totalQuestionsAnswered !== 50) {
+                return null; 
+            }
+
+            rawScores.B.themes = calculateValueThemes();
+
+            return rawScores;
+        }
+
+        function interpretRIASEC(riasecScores) {
+            // FIX: Corrected misspelling from 'riaseacScores' to 'riasecScores'
+            const scoresArray = Object.entries(riasecScores).map(([code, score]) => ({ code, score }));
+            scoresArray.sort((a, b) => b.score - a.score);
+
+            const topCodes = scoresArray.slice(0, 3).map(item => item.code);
+            const riasecCode = topCodes.join('-');
+
+            const codeDetails = {
+                R: { name: "Realistic (Doers)", theme: "practical, hands-on, mechanical, and athletic activities.", clusters: ["Engineering & Technical Trades", "Sports & Fitness", "Agriculture & Defense"] },
+                I: { name: "Investigative (Thinkers)", theme: "analytical, scientific, intellectual, and problem-solving activities.", clusters: ["Science & Research", "Medicine & Healthcare", "Data & Analytics"] },
+                A: { name: "Artistic (Creators)", theme: "creative, expressive, aesthetic, and non-conforming activities.", clusters: ["Media & Communication", "Design & Architecture", "Fine Arts & Performing Arts"] },
+                S: { name: "Social (Helpers)", theme: "teaching, helping, caring, training, and working with people.", clusters: ["Education & Teaching", "Psychology & Counseling", "Social Work & Community Services"] },
+                E: { name: "Enterprising (Leaders)", theme: "leading, persuading, managing, selling, and entrepreneurship.", clusters: ["Business & Management", "Marketing & Sales", "Law & Politics"] },
+                C: { name: "Conventional (Organizers)", theme: "organized, detail-oriented, systematic, and data-focused tasks.", clusters: ["Finance & Banking", "IT & Administration", "Accounting & Record Keeping"] }
+            };
+
+            let summary = `Your primary interest code is **${riasecCode}**. This means you are strongly drawn to the combination of careers that involve ${codeDetails[topCodes[0]].theme.toLowerCase().replace('.', '')}.`;
+            if (topCodes.length > 1) {
+                summary += ` Your second strongest area is **${topCodes[1]}** (${codeDetails[topCodes[1]].theme.toLowerCase().replace('.', '')}).`;
+            }
+
+            const suggestedClusters = topCodes.map(code => codeDetails[code].clusters).flat().filter((v, i, a) => a.indexOf(v) === i);
+
+            return { riasecCode, summary, suggestedClusters, codeDetails, scoresArray };
+        }
+
+        function generateCounselorNotes(scores, riasecResult) {
+            const interpretation = document.getElementById('counselorNotes');
+
+            const scoreInterpretation = (score, max) => {
+                const percent = score / max;
+                if (percent >= 0.8) return { label: 'Very High', color: 'text-green-700', bg: 'bg-green-100' };
+                if (percent >= 0.6) return { label: 'High', color: 'text-green-600', bg: 'bg-green-50' };
+                if (percent >= 0.4) return { label: 'Medium', color: 'text-yellow-700', bg: 'bg-yellow-50' };
+                return { label: 'Low', color: 'text-red-700', bg: 'bg-red-50' };
+            };
+
+            const efficacy = scoreInterpretation(scores.C.total, scores.C.items * 4);
+            const perseverance = scoreInterpretation(scores.D.total, scores.D.items * 4);
+            const values = scores.B.themes;
+            
+            let valueThemeDescription;
+            switch (values.topTheme) {
+                case 'ALTRUISM':
+                    valueThemeDescription = 'making a positive impact, working in teams, and being helpful to society.';
+                    break;
+                case 'SECURITY':
+                    valueThemeDescription = 'financial stability, a high salary, and learning skills that are stable or globally useful.';
+                    break;
+                case 'AUTONOMY':
+                    valueThemeDescription = 'creative freedom, independence, traveling, and a fast-paced work environment.';
+                    break;
+                default:
+                    valueThemeDescription = 'a blend of different priorities.';
+            }
+            
+            let notes = `
+                <div class="mb-6">
+                    <p class="font-bold text-gray-800">1. Core Strengths & Growth Areas</p>
+                    <hr class="my-2 border-indigo-200">
+                    <div class="space-y-3">
+                        <div class="p-3 rounded-lg ${efficacy.bg} border-l-4 border-indigo-500">
+                            <p class="font-semibold">Self-Efficacy (Confidence): <span class="${efficacy.color}">${efficacy.label}</span></p>
+                            <p class="text-sm">You generally ${efficacy.label === 'Low' ? 'struggle to believe in' : 'show confidence in'} your ability to learn new skills, manage time, and perform on exams.
+                            ${efficacy.label === 'Low' ? 'This is a key area to develop before pursuing demanding studies.' : 'This strong self-belief is a critical asset for overcoming academic hurdles.'}</p>
+                        </div>
+                        <div class="p-3 rounded-lg ${perseverance.bg} border-l-4 border-indigo-500">
+                            <p class="font-semibold">Perseverance (Grit): <span class="${perseverance.color}">${perseverance.label}</span></p>
+                            <p class="text-sm">You tend to ${perseverance.label === 'Low' ? 'give up when work gets boring or difficult' : 'push through difficult tasks and bounce back after failure'}.
+                            ${perseverance.label === 'Low' ? 'Building persistence is necessary for long-term career success.' : 'This grit indicates you have the stamina required for demanding, long-term goals like medicine or engineering.'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <p class="font-bold text-gray-800">2. Workplace Motivators</p>
+                    <hr class="my-2 border-indigo-200">
+                    <p class="text-sm">Your strongest workplace motivator is **${values.topTheme}**. You prioritize ${valueThemeDescription} This focus should guide your choice of industry.</p>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="font-bold text-gray-800">3. Interest Alignment (RIASEC)</p>
+                    <hr class="my-2 border-indigo-200">
+                    <p class="text-sm">Your primary interest is **${riasecResult.codeDetails[riasecResult.scoresArray[0].code].name}**. You are likely most engaged when performing tasks related to its core theme: **${riasecResult.codeDetails[riasecResult.scoresArray[0].code].theme}**.</p>
+                    <p class="text-sm mt-1">Your secondary interest is **${riasecResult.codeDetails[riasecResult.scoresArray[1].code].name}**, suggesting a need to combine your primary interests with aspects of ${riasecResult.codeDetails[riasecResult.scoresArray[1].code].theme}.</p>
+                </div>
+
+                <div class="p-4 mt-6 rounded-lg ${efficacy.label === 'Very High' && perseverance.label === 'Very High' ? 'bg-green-100 border-green-500' : 'bg-yellow-100 border-yellow-500'} border-l-4">
+                    <p class="font-bold text-lg text-gray-800">Overall Counseling Summary</p>
+                    <p class="text-sm mt-2">
+                        ${efficacy.label === 'Very High' && perseverance.label === 'Very High'
+                            ? `Your interests are focused and your traits are strong. You are well-positioned to pursue ambitious and challenging career paths. Focus on gaining experience in fields like: ${riasecResult.suggestedClusters.slice(0, 3).join(', ')}.`
+                            : `While your interests are clear, your current Self-Efficacy (${efficacy.label}) or Perseverance (${perseverance.label}) suggests building non-cognitive skills must be the first priority. Counseling should focus on study habits, setting small achievable goals, and developing coping mechanisms before heavily committing to specific demanding careers.`
+                        }
+                    </p>
+                </div>
+            `;
+
+            interpretation.innerHTML = notes;
+        }
+
+        function renderScoreItem(title, score, max) {
+            const percent = Math.round((score / max) * 100);
+            const color = percent > 80 ? 'bg-green-500' : (percent > 60 ? 'bg-indigo-500' : (percent > 40 ? 'bg-yellow-500' : 'bg-red-500'));
+            const interpretation = percent > 80 ? 'Very High' : (percent > 60 ? 'High' : (percent > 40 ? 'Medium' : 'Low'));
+
+            // Renamed 'Values (Composite Score)' to 'Value Prioritization'
+            const displayTitle = title.includes('Composite Score') ? 'Value Prioritization' : title.replace('Primary Value:', 'Top Motivator:');
+
+
+            return `
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium text-gray-700">${displayTitle}</span>
+                        <span class="text-xs font-semibold ${color.replace('bg-', 'text-')}">${interpretation} (${score}/${max})</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="${color} h-2.5 rounded-full" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        function displayResults(scores, riasecResult) {
+            // Display overall RIASEC Code and Summary
+            document.getElementById('riasecCode').textContent = riasecResult.riasecCode;
+            document.getElementById('profileSummary').innerHTML = riasecResult.summary;
+            document.querySelector('#careerSuggestions span').textContent = riasecResult.suggestedClusters.join(', ');
+
+            // Display Trait Scores
+            const traitContainer = document.getElementById('traitScores');
+            traitContainer.innerHTML = `
+                ${renderScoreItem('Self-Efficacy (Confidence)', scores.C.total, scores.C.items * 4)}
+                ${renderScoreItem('Perseverance (Grit & Effort)', scores.D.total, scores.D.items * 4)}
+                ${renderScoreItem('Values (Composite Score)', scores.B.total, scores.B.items * 4)}
+                ${renderScoreItem(`Primary Value: ${scores.B.themes.topTheme}`, scores.B.themes.topScore, 16)}
+            `;
+
+            // Display RIASEC Breakdown
+            const riasecContainer = document.getElementById('riasecScores');
+            const riasecItems = riasecResult.scoresArray.map(item => {
+                const max = RIASEC_MAP[item.code] ? RIASEC_MAP[item.code].length * 4 : 0;
+                return renderScoreItem(`${item.code} - ${riasecResult.codeDetails[item.code].name}`, item.score, max);
+            }).join('');
+            riasecContainer.innerHTML = riasecItems;
+
+            // Generate and display Counselor Interpretation
+            generateCounselorNotes(scores, riasecResult);
+
+            // Show results container and hide form elements
+            document.getElementById('resultsContainer').classList.remove('hidden');
+            document.getElementById('mobileFooter').classList.add('hidden'); // Hide mobile submit button on results page
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function calculateResults(event) {
+            if (event) event.preventDefault();
+
+            const scores = calculateSectionScores();
+
+            if (scores === null) {
+                document.getElementById('incompleteMessage').classList.remove('hidden');
+                return;
+            }
+
+            const riasecResult = interpretRIASEC(scores.RIASEC);
+            displayResults(scores, riasecResult);
+        }
+
+        // Initialize only if password is not used, otherwise rely on checkPassword
+        document.addEventListener('DOMContentLoaded', () => {
+            // If running directly on a non-secure environment or outside a Canvas, this is often skipped. 
+            // We rely on checkPassword() to call generateQuestions() now.
+            // However, we check if the overlay exists. If it doesn't, we can assume auto-login or development mode.
+            if (!document.getElementById('password-overlay')) {
+                generateQuestions();
+                updateProgress();
+            }
+        });
+    </script>
+</body>
+</html>
